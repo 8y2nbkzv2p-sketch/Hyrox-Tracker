@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#ffffff"/>
 <title>Hyrox Tracker — Dec 10</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --bg:#ffffff;--bg2:#f5f5f4;--bg3:#eeece8;
@@ -485,6 +486,30 @@ let logs=JSON.parse(localStorage.getItem('hx_logs')||'[]');
 let diet=JSON.parse(localStorage.getItem('hx_diet')||'[]');
 let supps=JSON.parse(localStorage.getItem('hx_supps')||'{}');
 let mods=JSON.parse(localStorage.getItem('hx_mods')||'{}');
+const supa=supabase.createClient('https://fpnziwudieuzsvqdqdqr.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwbnppd3VkaWV1enN2cWRxZHFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0Njg2MDIsImV4cCI6MjA5NzA0NDYwMn0.7CTEkeyUP6Q822VGPIdUHAjef6Mfixpo1UvcetV1mDk');
+async function cloudSync(){
+  try{
+    const{data}=await supa.from('appdata').select('key,value');
+    if(data&&data.length){
+      data.forEach(r=>{
+        if(r.key==='logs'){logs=r.value;localStorage.setItem('hx_logs',JSON.stringify(logs));cloudSave();}
+        if(r.key==='diet'){diet=r.value;localStorage.setItem('hx_diet',JSON.stringify(diet));cloudSave();}
+        if(r.key==='supps'){supps=r.value;localStorage.setItem('hx_supps',JSON.stringify(supps));cloudSave();}
+        if(r.key==='mods'){mods=r.value;localStorage.setItem('hx_mods',JSON.stringify(mods));cloudSave();}
+      });
+    }
+  }catch(e){console.log('Load failed',e);}
+}
+async function cloudSave(){
+  try{
+    await supa.from('appdata').upsert([
+      {key:'logs',value:logs},
+      {key:'diet',value:diet},
+      {key:'supps',value:supps},
+      {key:'mods',value:mods},
+    ],{onConflict:'key'});
+  }catch(e){console.log('Save failed',e);}
+}
 let curMonth=new Date(NOW.getFullYear(),NOW.getMonth(),1);
 let logDow=NOW.getDay();
 let satVariant='cardio';
@@ -731,7 +756,7 @@ function quickDone(){
   if(logs.some(l=>l.date===todayStr))return;
   logs.push({date:todayStr,dow:NOW.getDay(),day:DMETA[NOW.getDay()].label,quick:true});
   logs.sort((a,b)=>a.date.localeCompare(b.date));
-  localStorage.setItem('hx_logs',JSON.stringify(logs));
+  localStorage.setItem('hx_logs',JSON.stringify(logs));cloudSave();
   renderToday();
 }
 
@@ -861,7 +886,7 @@ function saveLog(){
   const idx=logs.findIndex(l=>l.date===date);
   if(idx>=0)logs[idx]=entry;else logs.push(entry);
   logs.sort((a,b)=>a.date.localeCompare(b.date));
-  localStorage.setItem('hx_logs',JSON.stringify(logs));
+  localStorage.setItem('hx_logs',JSON.stringify(logs));cloudSave();
   clearLogFields();buildLogTabs();renderLogList();
 }
 
@@ -909,7 +934,7 @@ function renderLogList(){
 function delLog(date){
   if(!confirm('Delete this session?'))return;
   logs=logs.filter(l=>l.date!==date);
-  localStorage.setItem('hx_logs',JSON.stringify(logs));
+  localStorage.setItem('hx_logs',JSON.stringify(logs));cloudSave();
   buildLogTabs();renderLogList();
 }
 
@@ -935,7 +960,7 @@ function renderDiet(){
 
 function toggleSupp(id,dk){
   if(!supps[dk])supps[dk]={};supps[dk][id]=!supps[dk][id];
-  localStorage.setItem('hx_supps',JSON.stringify(supps));renderDiet();
+  localStorage.setItem('hx_supps',JSON.stringify(supps));cloudSave();renderDiet();
 }
 
 function saveDiet(){
@@ -944,7 +969,7 @@ function saveDiet(){
   const idx=diet.findIndex(d=>d.date===date);
   if(idx>=0)diet[idx]=entry;else diet.push(entry);
   diet.sort((a,b)=>a.date.localeCompare(b.date));
-  localStorage.setItem('hx_diet',JSON.stringify(diet));
+  localStorage.setItem('hx_diet',JSON.stringify(diet));cloudSave();
   ['d-pr','d-cal','d-w','d-pre','d-notes'].forEach(id=>document.getElementById(id).value='');
   ['d-fast','d-dr'].forEach(id=>document.getElementById(id).checked=false);
   document.getElementById('d-el').value='';renderDiet();
@@ -952,7 +977,7 @@ function saveDiet(){
 
 function delDiet(date){
   if(!confirm('Delete?'))return;diet=diet.filter(d=>d.date!==date);
-  localStorage.setItem('hx_diet',JSON.stringify(diet));renderDiet();
+  localStorage.setItem('hx_diet',JSON.stringify(diet));cloudSave();renderDiet();
 }
 
 function renderPlan(){
@@ -988,7 +1013,7 @@ function openModify(){document.getElementById('mod-modal').classList.remove('hid
 function closeMod(){document.getElementById('mod-modal').classList.add('hidden');}
 function saveMod(){
   mods[todayStr]={reason:document.getElementById('mo-r').value,replace:document.getElementById('mo-rp').value,notes:document.getElementById('mo-n').value};
-  localStorage.setItem('hx_mods',JSON.stringify(mods));closeMod();renderToday();
+  localStorage.setItem('hx_mods',JSON.stringify(mods));cloudSave();closeMod();renderToday();
 }
 
 // Init
